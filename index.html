@@ -1,5 +1,732 @@
 ```html
 <!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SST Puzzle - Quebra-Cabeça Deslizante</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #090d16;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Transição de movimento das pecinhas */
+        .puzzle-piece {
+            transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1), background-position 0.15s ease, border-color 0.3s ease;
+        }
+        /* Efeito de celebração no tabuleiro */
+        .board-celebrate {
+            animation: celebrateGlow 1.5s ease-in-out infinite alternate;
+            border-color: #a3e635 !important;
+        }
+        @keyframes celebrateGlow {
+            0% {
+                box-shadow: 0 0 10px rgba(163, 230, 53, 0.2);
+            }
+            100% {
+                box-shadow: 0 0 25px rgba(163, 230, 53, 0.6);
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden select-none">
+
+    <!-- Cabeçalho Principal -->
+    <header class="bg-slate-900/90 border-b border-slate-800/80 px-4 py-3 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="bg-lime-400 text-slate-950 font-black text-xs px-2 py-1 rounded shadow-sm shadow-lime-400/20">SST</span>
+                <h1 class="font-bold text-sm tracking-tight text-white">Quebra-Cabeça de Segurança</h1>
+            </div>
+            <button id="btn-back" class="hidden text-xs bg-slate-800 hover:bg-slate-750 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Menu
+            </button>
+        </div>
+    </header>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-grow flex items-center justify-center p-4">
+        <div class="w-full max-w-md mx-auto">
+
+            <!-- TELA 1: MENU DE SELEÇÃO DE IMAGEM -->
+            <section id="screen-menu" class="space-y-5">
+                <div class="text-center space-y-1.5">
+                    <h2 class="text-xl font-extrabold text-white">Selecione uma Placa</h2>
+                    <p class="text-xs text-slate-400">Escolha uma das 9 placas de segurança para jogar</p>
+                </div>
+
+                <!-- Seletor de Dificuldade Ampliado -->
+                <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-800/80 space-y-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-center">Grau de Dificuldade:</span>
+                    <div class="grid grid-cols-5 gap-1" id="difficulty-selector">
+                        <button data-size="2" class="py-1.5 text-[11px] rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-750 transition font-bold">2x2</button>
+                        <button data-size="3" class="py-1.5 text-[11px] rounded-lg bg-lime-400 text-slate-950 font-bold transition">3x3</button>
+                        <button data-size="4" class="py-1.5 text-[11px] rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-750 transition font-bold">4x4</button>
+                        <button data-size="5" class="py-1.5 text-[11px] rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-750 transition font-bold">5x5</button>
+                        <button data-size="6" class="py-1.5 text-[11px] rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-750 transition font-bold">6x6</button>
+                    </div>
+                </div>
+
+                <!-- Grade de Imagens (SVG Original) -->
+                <div class="grid grid-cols-3 gap-2.5" id="icon-grid">
+                    <!-- Gerado dinamicamente via JS -->
+                </div>
+            </section>
+
+            <!-- TELA 2: TABULEIRO DE JOGO -->
+            <section id="screen-game" class="hidden space-y-4">
+                
+                <!-- Barra de Status (Tempo e Movimentos) -->
+                <div class="flex items-center justify-between bg-slate-900/80 border border-slate-800/80 rounded-2xl p-3 text-xs shadow-lg">
+                    <div class="flex items-center gap-1.5 text-slate-300">
+                        <i data-lucide="timer" class="w-4 h-4 text-lime-400"></i>
+                        <span id="game-timer" class="font-mono font-bold text-white text-sm">00:00</span>
+                    </div>
+                    <div class="text-center px-1">
+                        <span id="instructions-bar" class="text-[9px] text-slate-400 block font-medium transition-colors duration-300">Toque em qualquer peça alinhada para deslizar</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-slate-300">
+                        <i data-lucide="footprints" class="w-4 h-4 text-lime-400"></i>
+                        <span>Passos: <strong id="game-moves" class="text-white text-sm">0</strong></span>
+                    </div>
+                </div>
+
+                <!-- Tabuleiro Principal -->
+                <div id="board-container" class="w-full aspect-square bg-slate-950 rounded-3xl overflow-hidden border border-slate-850 p-2 flex items-center justify-center relative shadow-2xl transition-all duration-500">
+                    <div id="puzzle-board" class="grid w-full h-full gap-1 bg-slate-900 rounded-2xl overflow-hidden">
+                        <!-- Peças geradas via JS -->
+                    </div>
+                </div>
+
+                <!-- Painel de Controles Técnicos -->
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="btn-restart" class="bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800/80 py-2.5 px-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 text-lime-400"></i>
+                        Reiniciar
+                    </button>
+                    <button id="btn-toggle-numbers" class="bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800/80 py-2.5 px-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 transition">
+                        <i data-lucide="help-circle" class="w-4 h-4 text-lime-400" id="numbers-icon"></i>
+                        <span id="numbers-btn-text">Dica de Número</span>
+                    </button>
+                    <button id="btn-preview" class="bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800/80 py-2.5 px-3 rounded-xl text-xs flex flex-col items-center justify-center gap-1 transition">
+                        <i data-lucide="image" class="w-4 h-4 text-lime-400"></i>
+                        Ver Gabarito
+                    </button>
+                </div>
+            </section>
+
+            <!-- TELA 3: TELA DE VITÓRIA COMPLETADA (COM IMAGEM COMPLETA) -->
+            <section id="screen-victory" class="hidden space-y-5 py-2">
+                <div class="text-center space-y-1">
+                    <div class="inline-flex p-2 bg-lime-400/10 border border-lime-400/20 rounded-full text-lime-400 mb-1">
+                        <i data-lucide="award" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-2xl font-black text-white tracking-tight">Parabéns! Você Conseguiu!</h2>
+                    <p class="text-xs text-slate-400">Você organizou a placa de segurança com sucesso.</p>
+                </div>
+
+                <!-- Estatísticas de Desempenho -->
+                <div class="grid grid-cols-2 gap-2 bg-slate-900/60 p-3 rounded-2xl border border-slate-800/80 text-center text-xs">
+                    <div>
+                        <span class="text-slate-500 block text-[9px] uppercase font-bold">Tempo Gasto</span>
+                        <strong id="victory-time-display" class="text-lime-400 text-sm font-mono">00:00</strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block text-[9px] uppercase font-bold">Movimentos</span>
+                        <strong id="victory-moves-display" class="text-lime-400 text-sm">0</strong>
+                    </div>
+                </div>
+
+                <!-- IMAGEM COMPLETA DO QUEBRA-CABEÇA -->
+                <div class="space-y-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block text-center">Placa de Segurança Resolvida:</span>
+                    <div class="w-full aspect-square bg-slate-950 rounded-3xl p-3 border-2 border-lime-400/30 flex items-center justify-center shadow-lg shadow-lime-400/5 overflow-hidden">
+                        <div id="victory-image-view" class="w-full h-full max-w-[280px] max-h-[280px]">
+                            <!-- SVG Completo aparece aqui -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões de Ação Final -->
+                <div class="flex flex-col gap-2 pt-2">
+                    <button id="btn-victory-next-image" class="w-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition shadow-lg shadow-lime-400/15 flex items-center justify-center gap-1.5">
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i> Jogar Próxima Imagem
+                    </button>
+                    <button id="btn-victory-back-menu" class="w-full bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition border border-slate-700/50">
+                        Voltar ao Menu Principal
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODAL DE VISUALIZAÇÃO DE REFERÊNCIA (GABARITO) -->
+    <div id="preview-modal" class="hidden fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-slate-900 p-5 rounded-3xl w-full max-w-xs border border-slate-850 space-y-4 shadow-2xl">
+            <h3 class="text-xs font-bold text-slate-400 text-center uppercase tracking-wider">Gabarito para Referência</h3>
+            <div id="preview-image-container" class="w-full aspect-square bg-slate-950 rounded-2xl p-2 flex items-center justify-center border border-slate-800">
+                <!-- Imagem original -->
+            </div>
+            <button id="btn-close-preview" class="w-full bg-slate-800 hover:bg-slate-750 text-white font-bold py-2.5 rounded-xl text-xs transition border border-slate-700/50">
+                Fechar Gabarito
+            </button>
+        </div>
+    </div>
+
+    <!-- Rodapé -->
+    <footer class="border-t border-slate-900 bg-slate-950 py-3 text-center text-[9px] text-slate-500">
+        Desenvolvido para SST • Segurança & Prevenção
+    </footer>
+
+    <!-- LÓGICA DO JOGO -->
+    <script>
+        // --- AS 9 PLACAS DE SEGURANÇA ORIGINAIS EM SVG (ALTA FIDELIDADE) ---
+        const safetySVGs = [
+            // 1. Bloqueio e Etiquetagem (Padlock, Valve, Gauge)
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <rect x="44" y="46" width="34" height="26" rx="4" />
+                    <path d="M50,46 V35 A11,11 0 0,1 72,35 V46" />
+                    <circle cx="61" cy="56" r="3" />
+                    <line x1="61" y1="59" x2="61" y2="65" />
+                    <circle cx="42" cy="22" r="7" />
+                    <path d="M42,12 L42,15 M42,29 L42,32 M32,22 L35,22 M49,22 L52,22" />
+                    <circle cx="56" cy="14" r="5" />
+                    <circle cx="21" cy="36" r="8" />
+                    <line x1="21" y1="36" x2="21" y2="30" />
+                    <rect x="13" y="48" width="16" height="12" rx="2" />
+                    <circle cx="21" cy="54" r="2" />
+                    <line x1="5" y1="51" x2="13" y2="51" />
+                    <line x1="29" y1="51" x2="37" y2="51" />
+                    <path d="M31,62 L22,76 L29,76 L27,90 L40,71 L33,71 Z" />
+                </g>
+            </svg>`,
+
+            // 2. Raio de Risco Elétrico Simples
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <path d="M54,12 L35,50 L50,50 L42,88 L65,44 L50,44 Z" stroke="#004d4d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>`,
+
+            // 3. Espaço Confinado (Homem na caixa com abertura à esquerda)
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <path d="M19,38 V20 H81 V80 H19 V62" />
+                    <circle cx="63" cy="40" r="5" />
+                    <path d="M49,32 L53,38 L48,51 L56,51 L65,68" />
+                    <path d="M63,45 L58,58 L45,58 L28,68 L45,68 C45,68 53,68 53,74 L57,74 C57,74 61,74 61,68 L64,52" />
+                </g>
+            </svg>`,
+
+            // 4. Perigo de Fogo / Incêndio
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <path d="M50,15 C42,28 32,38 27,52 C20,70 32,86 50,86 C68,86 80,70 73,52 C65,36 58,30 50,15 Z" />
+                    <path d="M50,45 C45,52 40,58 40,65 C40,73 45,78 50,78 C55,78 60,73 60,65 C60,57 55,52 50,45 Z" />
+                </g>
+            </svg>`,
+
+            // 5. Homem Correndo de Acidente/Explosão/Queda de chave
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <circle cx="54" cy="46" r="4.5" />
+                    <path d="M50,51 L56,58 L66,59 M56,58 L51,69 L32,83 M45,74 L55,89 L59,89" />
+                    <path d="M50,51 L41,62 L38,62" />
+                    <path d="M26,69 H73 V88 M26,88 V69" />
+                    <line x1="26" y1="74" x2="73" y2="74" />
+                    <path d="M15,44 Q22,35 15,30 Q28,32 30,22 Q32,35 41,36 Q32,41 33,48 Q25,40 15,44 Z" />
+                    <line x1="10" y1="58" x2="14" y2="55" />
+                    <line x1="25" y1="59" x2="23" y2="56" />
+                    <path d="M35,36 L61,19 C64,17 68,22 66,24 L40,41 Z" />
+                    <line x1="44" y1="12" x2="44" y2="20" />
+                    <line x1="49" y1="13" x2="49" y2="21" />
+                    <line x1="53" y1="11" x2="53" y2="16" />
+                    <circle cx="73" cy="51" r="7.5" />
+                    <circle cx="73" cy="51" r="2" />
+                    <path d="M75,22 H86 Q86,42 66,42" />
+                    <line x1="82" y1="53" x2="86" y2="53" />
+                </g>
+            </svg>`,
+
+            // 6. Prancheta de Checklist / Permissão de Trabalho (PT)
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <rect x="30" y="20" width="44" height="60" rx="3" />
+                    <rect x="40" y="28" width="24" height="8" rx="1" />
+                    <line x1="37" y1="42" x2="67" y2="42" />
+                    <line x1="37" y1="49" x2="67" y2="49" />
+                    <line x1="37" y1="56" x2="67" y2="56" />
+                    <line x1="37" y1="63" x2="67" y2="63" />
+                    <line x1="37" y1="71" x2="67" y2="71" />
+                    <path d="M55,42 L25,71 C24,72 20,77 18,79 C20,77 25,73 26,72 L55,42" fill="#ccff00" />
+                    <line x1="23" y1="69" x2="26" y2="72" />
+                </g>
+            </svg>`,
+
+            // 7. Carga Suspensa Proibida / Empilhadeira perigo
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <line x1="24" y1="24" x2="76" y2="75" stroke-width="4.5" />
+                    <circle cx="23" cy="76" r="7.5" />
+                    <circle cx="23" cy="76" r="2" />
+                    <circle cx="45" cy="76" r="7.5" />
+                    <circle cx="45" cy="76" r="2" />
+                    <path d="M17,63 H42 L52,64 H53" />
+                    <path d="M21,63 L21,50 H41 L46,63" />
+                    <rect x="28" y="58" width="6" height="5" />
+                    <line x1="32" y1="78" x2="36" y2="78" />
+                    <line x1="56" y1="73" x2="56" y2="82" />
+                    <path d="M58,81 H68" />
+                    <path d="M51,11 H73" />
+                    <path d="M62,11 V30 C62,35 56,36 56,39 C56,44 64,44 64,39" />
+                </g>
+            </svg>`,
+
+            // 8. Segurança de Trabalho em Altura (Escada e Arnês)
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <line x1="54" y1="15" x2="48" y2="83" />
+                    <line x1="72" y1="15" x2="78" y2="83" />
+                    <line x1="53" y1="26" x2="73" y2="26" />
+                    <line x1="52" y1="37" x2="74" y2="37" />
+                    <line x1="51" y1="48" x2="75" y2="48" />
+                    <line x1="50" y1="59" x2="76" y2="59" />
+                    <line x1="49" y1="70" x2="77" y2="70" />
+                    <circle cx="31" cy="32" r="4.5" />
+                    <path d="M28,37 L34,45 L34,51 H26" />
+                    <path d="M34,45 L41,45 H49" />
+                    <path d="M24,44 V58 C24,58 24,79 27,79" />
+                    <path d="M24,53 C24,53 28,53 30,58 L36,74" />
+                    <path d="M30,58 C30,62 33,65 37,65 Q40,65 39,59 L34,51" />
+                    <line x1="24" y1="17" x2="24" y2="44" />
+                    <line x1="31" y1="15" x2="31" y2="28" />
+                </g>
+            </svg>`,
+
+            // 9. Uso de Cinto e Não Uso de Celular no Caminhão
+            `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="#ccff00" />
+                <g stroke="#004d4d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <rect x="22" y="52" width="33" height="30" rx="2" />
+                    <path d="M55,58 H73 L77,69 V82 H55 Z" />
+                    <rect x="56" y="60" width="12" height="7" />
+                    <circle cx="34" cy="82" r="6" />
+                    <circle cx="34" cy="82" r="1.5" />
+                    <circle cx="68" cy="82" r="6" />
+                    <circle cx="68" cy="82" r="1.5" />
+                    <path d="M26,48 L43,30" stroke-width="4.5" />
+                    <rect x="27" y="18" width="16" height="13" rx="1" transform="rotate(-45 35 24)" />
+                    <rect x="11" y="34" width="16" height="13" rx="1" transform="rotate(-45 19 40)" />
+                    <circle cx="68" cy="29" r="15" />
+                    <line x1="57" y1="18" x2="79" y2="40" stroke-width="3.5" />
+                    <rect x="63" y="21" width="10" height="16" rx="2" />
+                    <circle cx="68" cy="33" r="1" />
+                </g>
+            </svg>`
+        ];
+
+        // --- SISTEMA DE ESTADO ---
+        let currentIconIdx = 0;
+        let gridSize = 3; 
+        let boardState = []; 
+        let moves = 0;
+        let timer = null;
+        let seconds = 0;
+        let isPlaying = false;
+        let showNumbers = false;
+        let revealFullyComplete = false; // Flag para desenhar a peça que faltava no final
+
+        // Gerador de Som nativo para feedbacks imediatos
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(freq, type, duration) {
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                // Navegador impediu o audio inicial
+            }
+        }
+
+        // --- COMPONENTES DA UI ---
+        const screenMenu = document.getElementById('screen-menu');
+        const screenGame = document.getElementById('screen-game');
+        const screenVictory = document.getElementById('screen-victory');
+        const iconGrid = document.getElementById('icon-grid');
+        const difficultySelector = document.getElementById('difficulty-selector');
+        const puzzleBoard = document.getElementById('puzzle-board');
+        const boardContainer = document.getElementById('board-container');
+        const instructionsBar = document.getElementById('instructions-bar');
+        const btnBack = document.getElementById('btn-back');
+        const gameTimer = document.getElementById('game-timer');
+        const gameMoves = document.getElementById('game-moves');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnToggleNumbers = document.getElementById('btn-toggle-numbers');
+        const btnPreview = document.getElementById('btn-preview');
+        const victoryTimeDisplay = document.getElementById('victory-time-display');
+        const victoryMovesDisplay = document.getElementById('victory-moves-display');
+        const victoryImageView = document.getElementById('victory-image-view');
+        const btnVictoryNextImage = document.getElementById('btn-victory-next-image');
+        const btnVictoryBackMenu = document.getElementById('btn-victory-back-menu');
+        const previewModal = document.getElementById('preview-modal');
+        const previewImageContainer = document.getElementById('preview-image-container');
+        const btnClosePreview = document.getElementById('btn-close-preview');
+        const numbersIcon = document.getElementById('numbers-icon');
+        const numbersBtnText = document.getElementById('numbers-btn-text');
+
+        // --- SISTEMA DE INICIALIZAÇÃO ---
+        window.onload = function() {
+            renderMenu();
+            lucide.createIcons();
+        };
+
+        // Tratamento da Dificuldade
+        difficultySelector.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            difficultySelector.querySelectorAll('button').forEach(b => {
+                b.className = "py-1.5 text-[11px] rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-750 transition font-bold";
+            });
+            btn.className = "py-1.5 text-[11px] rounded-lg bg-lime-400 text-slate-950 font-bold transition";
+            gridSize = parseInt(btn.dataset.size);
+            playSound(400, 'sine', 0.08);
+        });
+
+        // Preencher o menu inicial
+        function renderMenu() {
+            iconGrid.innerHTML = '';
+            safetySVGs.forEach((svg, index) => {
+                const card = document.createElement('div');
+                card.className = "relative aspect-square bg-slate-900 border-2 border-slate-800/80 rounded-2xl p-2.5 cursor-pointer hover:border-lime-400/50 active:scale-95 transition overflow-hidden flex items-center justify-center shadow-md";
+                card.innerHTML = `
+                    <div class="w-full h-full p-0.5">${svg}</div>
+                    <div class="absolute bottom-1 right-1 bg-slate-950/90 text-[8px] text-lime-400 font-extrabold px-1.5 py-0.5 rounded border border-slate-800">
+                        PLACA ${index + 1}
+                    </div>
+                `;
+                card.addEventListener('click', () => {
+                    startPuzzle(index);
+                });
+                iconGrid.appendChild(card);
+            });
+        }
+
+        // --- SISTEMA DESLIZANTE DE LINHA (LINE SLIDING) ---
+
+        function startPuzzle(iconIndex) {
+            currentIconIdx = iconIndex;
+            moves = 0;
+            seconds = 0;
+            isPlaying = true;
+            revealFullyComplete = false;
+            
+            screenMenu.classList.add('hidden');
+            screenVictory.classList.add('hidden');
+            screenGame.classList.remove('hidden');
+            btnBack.classList.remove('hidden');
+
+            boardContainer.classList.remove('board-celebrate');
+            instructionsBar.textContent = "Toque em qualquer peça alinhada para deslizar";
+            instructionsBar.className = "text-[9px] text-slate-400 block font-medium transition-colors duration-300";
+
+            puzzleBoard.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+
+            // Peça do canto inferior direito (gridSize * gridSize - 1) será o nosso "Vazio"
+            const totalPieces = gridSize * gridSize;
+            boardState = Array.from({ length: totalPieces }, (_, i) => i);
+
+            // Shuffler inteligente por cliques virtuais
+            shuffleBoard();
+
+            renderBoard();
+
+            // Setup do Cronômetro
+            clearInterval(timer);
+            gameTimer.textContent = "00:00";
+            gameMoves.textContent = "0";
+            timer = setInterval(() => {
+                seconds++;
+                const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const secs = String(seconds % 60).padStart(2, '0');
+                gameTimer.textContent = `${mins}:${secs}`;
+            }, 1000);
+
+            playSound(550, 'sine', 0.12);
+        }
+
+        // Embaralhamento confiável
+        function shuffleBoard() {
+            const total = gridSize * gridSize;
+            let blankPos = boardState.indexOf(total - 1);
+
+            // Executa movimentos válidos aleatórios
+            const iterations = gridSize * 80; 
+            for (let k = 0; k < iterations; k++) {
+                let movesPossible = [];
+                let row = Math.floor(blankPos / gridSize);
+                let col = blankPos % gridSize;
+
+                if (row > 0) movesPossible.push(blankPos - gridSize);
+                if (row < gridSize - 1) movesPossible.push(blankPos + gridSize);
+                if (col > 0) movesPossible.push(blankPos - 1);
+                if (col < gridSize - 1) movesPossible.push(blankPos + 1);
+
+                let chosenIndex = movesPossible[Math.floor(Math.random() * movesPossible.length)];
+                
+                // Realizar troca simples
+                let temp = boardState[blankPos];
+                boardState[blankPos] = boardState[chosenIndex];
+                boardState[chosenIndex] = temp;
+                
+                blankPos = chosenIndex;
+            }
+        }
+
+        // Desenhar tabuleiro ativo
+        function renderBoard() {
+            puzzleBoard.innerHTML = '';
+            const total = gridSize * gridSize;
+            const svgString = safetySVGs[currentIconIdx];
+            const dataUri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+
+            boardState.forEach((pieceVal, currentPos) => {
+                const tile = document.createElement('div');
+                tile.className = "puzzle-piece relative aspect-square rounded-xl overflow-hidden select-none cursor-pointer touch-none active:brightness-95";
+
+                // Se for o slot vazio E ainda não vencemos o jogo para revelar a imagem completa
+                if (pieceVal === total - 1 && !revealFullyComplete) {
+                    tile.className = "aspect-square rounded-xl bg-slate-950 border border-slate-900 flex items-center justify-center";
+                    tile.innerHTML = `<div class="w-2 h-2 rounded-full bg-slate-800"></div>`;
+                } else {
+                    // Determinar recorte do background
+                    const correctRow = Math.floor(pieceVal / gridSize);
+                    const correctCol = pieceVal % gridSize;
+                    const posX = (correctCol / (gridSize - 1)) * 100;
+                    const posY = (correctRow / (gridSize - 1)) * 100;
+
+                    tile.style.backgroundImage = `url("${dataUri}")`;
+                    tile.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+                    tile.style.backgroundPosition = `${posX}% ${posY}%`;
+                    tile.style.border = "1px solid rgba(15, 23, 42, 0.5)";
+
+                    // Dica numérica (só mostra nas peças visíveis)
+                    if (showNumbers && (!revealFullyComplete || pieceVal !== total - 1)) {
+                        const label = document.createElement('div');
+                        label.className = "absolute top-1 left-1 bg-slate-950/80 border border-slate-800 text-white font-mono font-bold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center pointer-events-none";
+                        label.textContent = pieceVal + 1;
+                        tile.appendChild(label);
+                    }
+
+                    // Ação de deslize rápido ao clicar ou tocar (se o jogo estiver ativo)
+                    if (!revealFullyComplete) {
+                        const actionHandler = (e) => {
+                            e.preventDefault();
+                            trySlide(currentPos);
+                        };
+                        tile.addEventListener('click', actionHandler);
+                        tile.addEventListener('touchstart', actionHandler);
+                    }
+                }
+
+                puzzleBoard.appendChild(tile);
+            });
+        }
+
+        // Algoritmo Deslizante Avançado
+        function trySlide(pos) {
+            if (!isPlaying) return;
+
+            const total = gridSize * gridSize;
+            const blankPos = boardState.indexOf(total - 1);
+
+            const rowPos = Math.floor(pos / gridSize);
+            const colPos = pos % gridSize;
+            const rowBlank = Math.floor(blankPos / gridSize);
+            const colBlank = blankPos % gridSize;
+
+            let moved = false;
+
+            // Se o usuário clicar na mesma linha que o espaço vazio
+            if (rowPos === rowBlank) {
+                const step = colPos < colBlank ? 1 : -1;
+                let curr = blankPos;
+                while (curr !== pos) {
+                    const next = curr - step;
+                    boardState[curr] = boardState[next];
+                    curr = next;
+                }
+                boardState[pos] = total - 1;
+                moves++;
+                gameMoves.textContent = moves;
+                playSound(280, 'triangle', 0.08);
+                moved = true;
+            } 
+            // Se o usuário clicar na mesma coluna que o espaço vazio
+            else if (colPos === colBlank) {
+                const step = rowPos < rowBlank ? gridSize : -gridSize;
+                let curr = blankPos;
+                while (curr !== pos) {
+                    const next = curr - step;
+                    boardState[curr] = boardState[next];
+                    curr = next;
+                }
+                boardState[pos] = total - 1;
+                moves++;
+                gameMoves.textContent = moves;
+                playSound(280, 'triangle', 0.08);
+                moved = true;
+            } else {
+                // Clique desalinhado
+                playSound(140, 'sine', 0.1);
+            }
+
+            if (moved) {
+                renderBoard();
+                
+                if (checkVictory()) {
+                    triggerIntermediateCelebration();
+                }
+            }
+        }
+
+        // Validação se todas estão em ordem crescente
+        function checkVictory() {
+            for (let i = 0; i < boardState.length; i++) {
+                if (boardState[i] !== i) return false;
+            }
+            return true;
+        }
+
+        // Celebração intermediária diretamente no tabuleiro de jogo!
+        function triggerIntermediateCelebration() {
+            isPlaying = false;
+            clearInterval(timer);
+            
+            // Ativa a flag para desenhar o quebra-cabeça 100% completo com a peça final
+            revealFullyComplete = true;
+            renderBoard();
+
+            // Adiciona efeitos visuais de glória no tabuleiro ativo
+            boardContainer.classList.add('board-celebrate');
+            instructionsBar.textContent = "Placa completa! Analisando...";
+            instructionsBar.className = "text-[10px] text-lime-400 block font-bold transition-colors duration-300 uppercase tracking-wider";
+
+            // Fanfarra sonora de parabéns imediata
+            playSound(400, 'sine', 0.12);
+            setTimeout(() => playSound(520, 'sine', 0.12), 100);
+            setTimeout(() => playSound(650, 'sine', 0.12), 200);
+            setTimeout(() => playSound(800, 'sine', 0.25), 300);
+
+            // Aguarda 2 segundos para o jogador ver e comemorar antes de abrir a tela final de vitória
+            setTimeout(() => {
+                transitionToVictoryScreen();
+            }, 2000);
+        }
+
+        // Transição suave para a tela final
+        function transitionToVictoryScreen() {
+            const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+            const secs = String(seconds % 60).padStart(2, '0');
+            
+            victoryTimeDisplay.textContent = `${mins}:${secs}`;
+            victoryMovesDisplay.textContent = moves;
+
+            // Mostrar a Imagem Completa no container de vitória
+            victoryImageView.innerHTML = safetySVGs[currentIconIdx];
+
+            screenGame.classList.add('hidden');
+            btnBack.classList.add('hidden');
+            screenVictory.classList.remove('hidden');
+        }
+
+        // --- SISTEMAS DE INTERFACE ---
+
+        // Voltar ao Menu
+        btnBack.addEventListener('click', () => {
+            clearInterval(timer);
+            screenGame.classList.add('hidden');
+            btnBack.classList.add('hidden');
+            screenVictory.classList.add('hidden');
+            screenMenu.classList.remove('hidden');
+            renderMenu();
+        });
+
+        // Botão Reiniciar Jogo
+        btnRestart.addEventListener('click', () => {
+            startPuzzle(currentIconIdx);
+        });
+
+        // Mostrar/Ocultar Números de Dica
+        btnToggleNumbers.addEventListener('click', () => {
+            showNumbers = !showNumbers;
+            if (showNumbers) {
+                btnToggleNumbers.classList.add('bg-lime-400', 'text-slate-950');
+                btnToggleNumbers.classList.remove('bg-slate-900', 'text-slate-200');
+                numbersIcon.className = "w-4 h-4 text-slate-950";
+                numbersBtnText.textContent = "Remover Números";
+            } else {
+                btnToggleNumbers.classList.remove('bg-lime-400', 'text-slate-950');
+                btnToggleNumbers.classList.add('bg-slate-900', 'text-slate-200');
+                numbersIcon.className = "w-4 h-4 text-lime-400";
+                numbersBtnText.textContent = "Dica de Número";
+            }
+            lucide.createIcons();
+            renderBoard();
+        });
+
+        // Ver Gabarito Temporário
+        btnPreview.addEventListener('click', () => {
+            previewImageContainer.innerHTML = safetySVGs[currentIconIdx];
+            previewModal.classList.remove('hidden');
+        });
+
+        btnClosePreview.addEventListener('click', () => {
+            previewModal.classList.add('hidden');
+        });
+
+        // Ações da Tela de Vitória
+        btnVictoryBackMenu.addEventListener('click', () => {
+            screenVictory.classList.add('hidden');
+            screenMenu.classList.remove('hidden');
+            renderMenu();
+        });
+
+        btnVictoryNextImage.addEventListener('click', () => {
+            screenVictory.classList.add('hidden');
+            const nextIdx = (currentIconIdx + 1) % safetySVGs.length;
+            startPuzzle(nextIdx);
+        });
+    </script>
+</body>
+</html>
+
+```
+
+<!DOCTYPE html>
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
