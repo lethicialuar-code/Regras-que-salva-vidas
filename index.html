@@ -1,39 +1,4 @@
-```html
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SST Puzzle - Quebra-Cabeça Deslizante</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #090d16;
-            -webkit-tap-highlight-color: transparent;
-        }
-        /* Transição de movimento das pecinhas */
-        .puzzle-piece {
-            transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1), background-position 0.15s ease, border-color 0.3s ease;
-        }
-        /* Efeito de celebração no tabuleiro */
-        .board-celebrate {
-            animation: celebrateGlow 1.5s ease-in-out infinite alternate;
-            border-color: #a3e635 !important;
-        }
-        @keyframes celebrateGlow {
-            0% {
-                box-shadow: 0 0 10px rgba(163, 230, 53, 0.2);
-            }
-            100% {
-                box-shadow: 0 0 25px rgba(163, 230, 53, 0.6);
-            }
-        }
-    </style>
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlJhY2hhLUN1Y2EgM3gzIiwKICAic2hvcnRfbmFtZSI6ICJSYWNoYUN1Y2EiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBmMTcyOSIsCiAgInRoZW1lX2NvbG9yIjogIiMwZjE3MjkiLAogICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbDt1dGY4LDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTAwIDEwMCc+PHJlY3Qgd2lkdGg9JzEwMCcgaGVpZ2h0PScxMDAnIHJ4PScyMicgZmlsbD0nJTMyYmJmMzA1Jy8+PHBhdGggZD0nTTMwLDM1IEExNSwxNSAwIDEsMSA3MCwzNSBMNzAsNjUgQTE1LDE1IDAgMSwxIDMwLDY1IFonIGZpbGw9J25vbmUnIHN0cm9rZT0nJTMwMDUiNWMnIHN0cm9rZS13aWR0aD0nMTAnLz48L3N2Zz4iLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9CiAgXQp9">
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden select-none">
 
